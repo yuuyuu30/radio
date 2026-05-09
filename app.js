@@ -158,55 +158,50 @@ function moodToReply(text, weather) {
 }
 
 // ===== Spotify 推荐 =====
-function moodToGenres(text) {
+function moodToSearchQuery(text) {
   const t = text.toLowerCase();
-  if (/bossa|jazz|爵士/.test(t)) return 'bossa-nova,jazz';
-  if (/indie/.test(t)) return 'indie-pop,indie';
-  if (/电子|edm|dance|club/.test(t)) return 'edm,dance';
-  if (/古典|classical|钢琴|piano/.test(t)) return 'classical,piano';
-  if (/hip.?hop|说唱|rap/.test(t)) return 'hip-hop,rap';
-  if (/rock|摇滚/.test(t)) return 'rock,alternative';
-  if (/r&b|rnb|soul/.test(t)) return 'r-n-b,soul';
-  if (/运动|健身|跑步/.test(t)) return 'work-out,pop';
-  if (/放松|休息|冥想/.test(t)) return 'ambient,chill';
-  if (/难过|伤心|失落/.test(t)) return 'sad,singer-songwriter';
-  if (/开心|快乐|兴奋/.test(t)) return 'pop,happy';
-  return 'pop,chill';
+  if (/bossa/.test(t)) return 'bossa nova';
+  if (/jazz|爵士/.test(t)) return 'jazz';
+  if (/indie/.test(t)) return 'indie pop';
+  if (/电子|edm|dance|club/.test(t)) return 'electronic dance';
+  if (/古典|classical|钢琴|piano/.test(t)) return 'classical piano';
+  if (/hip.?hop|说唱|rap/.test(t)) return 'hip hop';
+  if (/rock|摇滚/.test(t)) return 'rock';
+  if (/r&b|rnb|soul/.test(t)) return 'r&b soul';
+  if (/运动|健身|跑步/.test(t)) return 'workout motivation';
+  if (/放松|休息|冥想/.test(t)) return 'relaxing chill';
+  if (/难过|伤心|失落/.test(t)) return 'sad emotional';
+  if (/开心|快乐|兴奋/.test(t)) return 'happy upbeat';
+  if (/专注|工作|学习/.test(t)) return 'focus study';
+  if (/浪漫|甜蜜/.test(t)) return 'romantic love';
+  if (/lofi|lo-fi/.test(t)) return 'lofi hip hop';
+  // 如果用户直接用英文/中文说了风格，直接用
+  return t.replace(/[！？，。～\s]+/g, ' ').trim() || 'chill pop';
 }
 
 async function getRecommendations(moodText, weather) {
-  const params = moodToParams(moodText);
-  const genres = moodToGenres(moodText);
+  const query = moodToSearchQuery(moodText);
 
-  // 先尝试用用户 top tracks 作为 seed（可选）
-  let seedTracks = '';
+  // 优先尝试用用户 top tracks 创建播放列表风格
   try {
-    const top = await apiGet('/me/top/tracks?limit=5&time_range=short_term');
-    if (top.items?.length >= 2) {
-      seedTracks = top.items.slice(0, 2).map(t => t.id).join(',');
+    const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
+    if (top.items?.length >= 5) {
+      // 按心情过滤 top tracks（能量匹配）
+      const moodP = moodToParams(moodText);
+      // 直接用 top tracks 返回（最贴近用户口味）
+      return top.items.slice(0, 20);
     }
   } catch (e) {}
 
-  // 构建参数：优先用 seed_tracks + seed_genres 组合
-  const qp = new URLSearchParams({ limit: '20' });
-  if (seedTracks) {
-    qp.set('seed_tracks', seedTracks);
-    qp.set('seed_genres', genres.split(',')[0]); // 加一个 genre seed
-  } else {
-    qp.set('seed_genres', genres);
-  }
-  qp.set('target_energy', String(params.energy));
-  qp.set('target_valence', String(params.valence));
-  qp.set('target_tempo', String(params.tempo));
-  qp.set('target_danceability', String(params.danceability));
+  // Fallback：搜索对应风格
+  const q = encodeURIComponent(`genre:"${query}"`);
+  const data = await apiGet(`/search?q=${q}&type=track&limit=20&market=CN`);
+  if (data.tracks?.items?.length) return data.tracks.items;
 
-  const data = await apiGet(`/recommendations?${qp}`);
-  if (data.tracks?.length) return data.tracks;
-
-  // fallback：用 search 搜风格
-  const searchGenre = genres.split(',')[0].replace(/-/g, ' ');
-  const searchData = await apiGet(`/search?q=genre:${encodeURIComponent(searchGenre)}&type=track&limit=20&market=CN`);
-  return searchData.tracks?.items || [];
+  // 再 fallback：宽松搜索
+  const q2 = encodeURIComponent(query);
+  const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20&market=CN`);
+  return data2.tracks?.items || [];
 }
 
 // ===== Web Playback SDK =====
