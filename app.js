@@ -182,26 +182,27 @@ function moodToSearchQuery(text) {
 async function getRecommendations(moodText, weather) {
   const query = moodToSearchQuery(moodText);
 
-  // 优先尝试用用户 top tracks 创建播放列表风格
+  // 1. genre: 精确搜索
   try {
-    const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
-    if (top.items?.length >= 5) {
-      // 按心情过滤 top tracks（能量匹配）
-      const moodP = moodToParams(moodText);
-      // 直接用 top tracks 返回（最贴近用户口味）
-      return top.items.slice(0, 20);
-    }
+    const q1 = encodeURIComponent(`genre:"${query}"`);
+    const data1 = await apiGet(`/search?q=${q1}&type=track&limit=20`);
+    if (data1.tracks?.items?.length >= 3) return data1.tracks.items;
   } catch (e) {}
 
-  // Fallback：搜索对应风格
-  const q = encodeURIComponent(`genre:"${query}"`);
-  const data = await apiGet(`/search?q=${q}&type=track&limit=20&market=CN`);
-  if (data.tracks?.items?.length) return data.tracks.items;
+  // 2. 宽松关键词搜索
+  try {
+    const q2 = encodeURIComponent(query);
+    const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20`);
+    if (data2.tracks?.items?.length >= 3) return data2.tracks.items;
+  } catch (e) {}
 
-  // 再 fallback：宽松搜索
-  const q2 = encodeURIComponent(query);
-  const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20&market=CN`);
-  return data2.tracks?.items || [];
+  // 3. 最后兜底：用户 top tracks
+  try {
+    const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
+    if (top.items?.length) return top.items;
+  } catch (e) {}
+
+  return [];
 }
 
 // ===== Web Playback SDK =====
