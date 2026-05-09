@@ -222,6 +222,7 @@ window.onSpotifyWebPlaybackSDKReady = () => {
   player.addListener('ready', ({ device_id }) => { deviceId = device_id; });
   player.addListener('player_state_changed', state => {
     if (!state) return;
+    document.body.classList.toggle('playing', !state.paused);
     const track = state.track_window.current_track;
     updateNowPlaying(track, !state.paused);
     // 同步当前 index
@@ -261,7 +262,7 @@ function renderPlaylist(tracks) {
   const playlist = document.getElementById('playlist');
   document.getElementById('playlist-count').textContent = `${tracks.length} 首`;
   list.innerHTML = tracks.map((t, i) => `
-    <div class="track-item" data-index="${i}">
+    <div class="track-item" data-index="${i}" style="animation-delay:${i * 0.05}s">
       <img src="${t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || ''}" alt="">
       <div class="track-item-info">
         <div class="track-item-name">${t.name}</div>
