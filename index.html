@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小克喵电台 🎵</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 登录页 -->
+    <div id="login-page" class="page">
+      <div class="login-card">
+        <div class="logo">🐱</div>
+        <h1>小克喵电台</h1>
+        <p>根据你的心情和天气，为你选歌</p>
+        <button id="login-btn" class="btn-primary">用 Spotify 登录</button>
+      </div>
+    </div>
+
+    <!-- 主页 -->
+    <div id="main-page" class="page hidden">
+      <header>
+        <div class="header-left">
+          <span class="logo-sm">🐱</span>
+          <span class="title">小克喵电台</span>
+        </div>
+        <div id="weather-widget" class="weather-widget">
+          <span id="weather-icon">⛅</span>
+          <span id="weather-text">获取天气中...</span>
+        </div>
+      </header>
+
+      <div class="main-content">
+        <!-- 聊天/对话区 -->
+        <div class="chat-section">
+          <div id="chat-messages" class="chat-messages">
+            <div class="msg-bot">
+              <span class="bot-avatar">🐱</span>
+              <div class="msg-bubble">嗨老大！今天心情怎么样？告诉咪你现在的状态，或者想听什么风格的音乐～</div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input id="chat-input" type="text" placeholder="说说你的心情、场景或音乐风格..." />
+            <button id="send-btn" class="btn-send">→</button>
+          </div>
+        </div>
+
+        <!-- 播放器 -->
+        <div class="player-section">
+          <div id="now-playing" class="now-playing hidden">
+            <img id="track-art" src="" alt="album art" />
+            <div class="track-info">
+              <div id="track-name" class="track-name">-</div>
+              <div id="track-artist" class="track-artist">-</div>
+            </div>
+            <div class="controls">
+              <button id="prev-btn" class="ctrl-btn">⏮</button>
+              <button id="play-btn" class="ctrl-btn play">▶</button>
+              <button id="next-btn" class="ctrl-btn">⏭</button>
+            </div>
+          </div>
+
+          <!-- 歌单 -->
+          <div id="playlist" class="playlist hidden">
+            <div class="playlist-header">为你推荐 <span id="playlist-count"></span></div>
+            <div id="track-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
