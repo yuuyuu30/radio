@@ -34,17 +34,17 @@ async function callDeepSeek(moodText, weather) {
     body: JSON.stringify({
       model: DS_MODEL,
       messages: [
-        { role: 'system', content: '你是小克喵，一个可爱的猫咪电台DJ。根据用户描述的心情或场景给出音乐推荐。只返回纯JSON，不要多余文字，格式：{"reply":"一句话回复，15字以内，称用户为老大，结尾用喵","query":"Spotify搜索关键词，必须是1到2个英文单词的音乐类型或风格，例如jazz、bossa nova、lo-fi、indie pop，不要加形容词或季节词"}' },
+        { role: 'system', content: '你是小克喵，一个可爱的猫咪电台DJ。根据用户描述的心情或场景给出音乐推荐。只返回纯JSON，不要多余文字，格式：{"reply":"一句话回复，15字以内，称用户为老大，结尾用喵","genre":"Spotify genre seed，必须是以下之一：acoustic, afrobeat, alt-rock, alternative, ambient, blues, bossa-nova, brazil, british, chill, classical, club, country, dance, dancehall, death-metal, deep-house, detroit-techno, disco, drum-and-bass, dub, dubstep, edm, electro, electronic, folk, french, funk, garage, gospel, goth, grunge, happy, hard-rock, hardcore, heavy-metal, hip-hop, holidays, honky-tonk, house, idm, indian, indie, indie-pop, industrial, iranian, j-dance, j-idol, j-pop, j-rock, jazz, k-pop, latin, latino, malay, mandopop, metal, metal-misc, metalcore, minimal-techno, movies, mpb, new-age, new-release, opera, pagode, party, philippines-opm, piano, pop, pop-film, post-dubstep, power-pop, progressive-house, psych-rock, punk, punk-rock, r-n-b, rainy-day, reggae, reggaeton, road-trip, rock, rock-n-roll, rockabilly, romance, sad, salsa, samba, sertanejo, show-tunes, singer-songwriter, ska, sleep, songwriter, soul, soundtracks, spanish, study, summer, swedish, synth-pop, tango, techno, trance, trip-hop, turkish, work-out, world-music"}' },
         { role: 'user', content: weatherStr + '用户说：' + moodText }
       ],
       temperature: 0.7,
-      max_tokens: 150,
+      max_tokens: 200,
     }),
   });
   if (!res.ok) throw new Error('DeepSeek HTTP ' + res.status);
   const data = await res.json();
-  const text = data.choices?.[0]?.message?.content || '';
-  return JSON.parse(text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim());
+  const rawText = data.choices?.[0]?.message?.content || '';
+  return JSON.parse(rawText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim());
 }
 
 // ===== PKCE Auth =====
@@ -193,49 +193,40 @@ function moodToReply(text, weather) {
 // ===== Spotify 推荐 =====
 function moodToSearchQuery(text) {
   const t = text.toLowerCase();
-  if (/bossa/.test(t)) return 'bossa nova';
+  if (/bossa/.test(t)) return 'bossa-nova';
   if (/jazz|爵士/.test(t)) return 'jazz';
-  if (/indie/.test(t)) return 'indie pop';
-  if (/电子|edm|dance|club/.test(t)) return 'electronic dance';
-  if (/古典|classical|钢琴|piano/.test(t)) return 'classical piano';
-  if (/hip.?hop|说唱|rap/.test(t)) return 'hip hop';
+  if (/indie/.test(t)) return 'indie-pop';
+  if (/电子|edm|dance|club/.test(t)) return 'electronic';
+  if (/古典|classical|钢琴|piano/.test(t)) return 'classical';
+  if (/hip.?hop|说唱|rap/.test(t)) return 'hip-hop';
   if (/rock|摇滚/.test(t)) return 'rock';
-  if (/r&b|rnb|soul/.test(t)) return 'r&b soul';
-  if (/运动|健身|跑步/.test(t)) return 'workout motivation';
-  if (/放松|休息|冥想/.test(t)) return 'relaxing chill';
-  if (/难过|伤心|失落/.test(t)) return 'sad emotional';
-  if (/开心|快乐|兴奋/.test(t)) return 'happy upbeat';
-  if (/专注|工作|学习/.test(t)) return 'focus study';
-  if (/浪漫|甜蜜/.test(t)) return 'romantic love';
-  if (/lofi|lo-fi/.test(t)) return 'lofi hip hop';
-  // 如果用户直接用英文/中文说了风格，直接用
-  return t.replace(/[！？，。～\s]+/g, ' ').trim() || 'chill pop';
+  if (/r&b|rnb|soul/.test(t)) return 'r-n-b';
+  if (/运动|健身|跑步/.test(t)) return 'work-out';
+  if (/放松|休息|冥想/.test(t)) return 'chill';
+  if (/难过|伤心|失落/.test(t)) return 'sad';
+  if (/开心|快乐|兴奋/.test(t)) return 'happy';
+  if (/专注|工作|学习/.test(t)) return 'study';
+  if (/浪漫|甜蜜/.test(t)) return 'romance';
+  if (/lofi|lo-fi/.test(t)) return 'hip-hop';
+  return 'pop';
 }
 
-async function getRecommendations(query) {
-  console.log('[getRecommendations] query:', query);
-
-  // 1. 关键词搜索
+async function getRecommendations(genre) {
+  // 1. Spotify Recommendations API（按 seed_genre）
   try {
-    const q1 = encodeURIComponent(query);
-    const data1 = await apiGet(`/search?q=${q1}&type=track&limit=20`);
-    console.log('[search1] hits:', data1.tracks?.items?.length, data1.error);
-    if (data1.tracks?.items?.length) return data1.tracks.items;
-  } catch (e) { console.log('[search1] error:', e.message); }
+    const seed = encodeURIComponent(genre);
+    const data1 = await apiGet(`/recommendations?seed_genres=${seed}&limit=20`);
+    if (data1.tracks?.length) return data1.tracks;
+  } catch (e) {}
 
-  // 2. 只取第一个词兜底（防止多词搜到 0 结果）
-  const firstWord = query.split(' ')[0];
-  if (firstWord && firstWord !== query) {
-    try {
-      const q2 = encodeURIComponent(firstWord);
-      const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20`);
-      console.log('[search2] hits:', data2.tracks?.items?.length, data2.error);
-      if (data2.tracks?.items?.length) return data2.tracks.items;
-    } catch (e) { console.log('[search2] error:', e.message); }
-  }
+  // 2. 关键词搜索兜底（不传 limit，用 Spotify 默认值）
+  try {
+    const q = encodeURIComponent(genre.replace(/-/g, ' '));
+    const data2 = await apiGet(`/search?q=${q}&type=track`);
+    if (data2.tracks?.items?.length) return data2.tracks.items;
+  } catch (e) {}
 
   // 3. 最后兜底：用户 top tracks
-  console.log('[fallback] using top tracks');
   try {
     const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
     if (top.items?.length) return top.items;
@@ -354,7 +345,7 @@ async function handleSend() {
     try {
       const ds = await callDeepSeek(text, weather);
       reply = ds.reply;
-      query = ds.query;
+      query = ds.genre || ds.query || moodToSearchQuery(text);
     } catch (e) {
       reply = moodToReply(text, weather);
       query = moodToSearchQuery(text);
