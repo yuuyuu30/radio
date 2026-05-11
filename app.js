@@ -213,12 +213,15 @@ function moodToSearchQuery(text) {
 }
 
 async function getRecommendations(query) {
+  console.log('[getRecommendations] query:', query);
+
   // 1. 关键词搜索
   try {
     const q1 = encodeURIComponent(query);
     const data1 = await apiGet(`/search?q=${q1}&type=track&limit=20`);
+    console.log('[search1] hits:', data1.tracks?.items?.length, data1.error);
     if (data1.tracks?.items?.length) return data1.tracks.items;
-  } catch (e) {}
+  } catch (e) { console.log('[search1] error:', e.message); }
 
   // 2. 只取第一个词兜底（防止多词搜到 0 结果）
   const firstWord = query.split(' ')[0];
@@ -226,11 +229,13 @@ async function getRecommendations(query) {
     try {
       const q2 = encodeURIComponent(firstWord);
       const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20`);
+      console.log('[search2] hits:', data2.tracks?.items?.length, data2.error);
       if (data2.tracks?.items?.length) return data2.tracks.items;
-    } catch (e) {}
+    } catch (e) { console.log('[search2] error:', e.message); }
   }
 
   // 3. 最后兜底：用户 top tracks
+  console.log('[fallback] using top tracks');
   try {
     const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
     if (top.items?.length) return top.items;
