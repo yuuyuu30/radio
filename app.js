@@ -214,10 +214,12 @@ function moodToSearchQuery(text) {
 }
 
 async function getRecommendations(genre) {
-  // 1. Spotify Recommendations API（按 seed_genre）
+  // 1. Spotify Recommendations API（按 seed_genre，随机 audio features 保证每次不重样）
   try {
     const seed = encodeURIComponent(genre);
-    const data1 = await apiGet(`/recommendations?seed_genres=${seed}&limit=20`);
+    const rv = (lo, hi) => (Math.random() * (hi - lo) + lo).toFixed(2);
+    const extra = `&target_energy=${rv(0.25,0.85)}&target_valence=${rv(0.15,0.85)}&target_danceability=${rv(0.2,0.9)}`;
+    const data1 = await apiGet(`/recommendations?seed_genres=${seed}&limit=20${extra}`);
     if (data1.tracks?.length) return data1.tracks;
   } catch (e) {}
 
