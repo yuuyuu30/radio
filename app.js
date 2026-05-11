@@ -34,7 +34,7 @@ async function callDeepSeek(moodText, weather) {
     body: JSON.stringify({
       model: DS_MODEL,
       messages: [
-        { role: 'system', content: '你是小克喵，一个可爱的猫咪电台DJ。根据用户描述的心情或场景给出音乐推荐。只返回纯JSON，不要多余文字，格式：{"reply":"一句话回复，15字以内，称用户为老大，结尾用喵","query":"最适合的Spotify搜索关键词（英文）"}' },
+        { role: 'system', content: '你是小克喵，一个可爱的猫咪电台DJ。根据用户描述的心情或场景给出音乐推荐。只返回纯JSON，不要多余文字，格式：{"reply":"一句话回复，15字以内，称用户为老大，结尾用喵","query":"Spotify搜索关键词，必须是1到2个英文单词的音乐类型或风格，例如jazz、bossa nova、lo-fi、indie pop，不要加形容词或季节词"}' },
         { role: 'user', content: weatherStr + '用户说：' + moodText }
       ],
       temperature: 0.7,
@@ -213,19 +213,22 @@ function moodToSearchQuery(text) {
 }
 
 async function getRecommendations(query) {
-  // 1. genre: 精确搜索
+  // 1. 关键词搜索
   try {
-    const q1 = encodeURIComponent(`genre:"${query}"`);
+    const q1 = encodeURIComponent(query);
     const data1 = await apiGet(`/search?q=${q1}&type=track&limit=20`);
-    if (data1.tracks?.items?.length >= 3) return data1.tracks.items;
+    if (data1.tracks?.items?.length) return data1.tracks.items;
   } catch (e) {}
 
-  // 2. 宽松关键词搜索
-  try {
-    const q2 = encodeURIComponent(query);
-    const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20`);
-    if (data2.tracks?.items?.length >= 3) return data2.tracks.items;
-  } catch (e) {}
+  // 2. 只取第一个词兜底（防止多词搜到 0 结果）
+  const firstWord = query.split(' ')[0];
+  if (firstWord && firstWord !== query) {
+    try {
+      const q2 = encodeURIComponent(firstWord);
+      const data2 = await apiGet(`/search?q=${q2}&type=track&limit=20`);
+      if (data2.tracks?.items?.length) return data2.tracks.items;
+    } catch (e) {}
+  }
 
   // 3. 最后兜底：用户 top tracks
   try {
