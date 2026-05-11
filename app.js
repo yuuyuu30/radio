@@ -14,6 +14,39 @@ const SCOPES = [
   'user-modify-playback-state',
 ].join(' ');
 
+const DS_MODEL = 'deepseek-v4-flash';
+
+function getDeepSeekKey() { return localStorage.getItem('ds_key') || ''; }
+
+function promptForKey() {
+  const key = prompt('请输入你的 DeepSeek API Key（只存在本地浏览器，不会上传）：', getDeepSeekKey());
+  if (key !== null) localStorage.setItem('ds_key', key.trim());
+  return getDeepSeekKey();
+}
+
+async function callDeepSeek(moodText, weather) {
+  const key = getDeepSeekKey();
+  if (!key) throw new Error('no ds key');
+  const weatherStr = weather ? `当前上海天气：${weather.desc}，${weather.temp}°C。` : '';
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: DS_MODEL,
+      messages: [
+        { role: 'system', content: '你是小克喵，一个可爱的猫咪电台DJ。根据用户描述的心情或场景给出音乐推荐。只返回纯JSON，不要多余文字，格式：{"reply":"一句话回复，15字以内，称用户为老大，结尾用喵","query":"最适合的Spotify搜索关键词（英文）"}' },
+        { role: 'user', content: weatherStr + '用户说：' + moodText }
+      ],
+      temperature: 0.7,
+      max_tokens: 150,
+    }),
+  });
+  if (!res.ok) throw new Error('DeepSeek HTTP ' + res.status);
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content || '';
+  return JSON.parse(text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim());
+}
+
 // ===== PKCE Auth =====
 function generateCodeVerifier() {
   const array = new Uint8Array(64);
@@ -179,9 +212,7 @@ function moodToSearchQuery(text) {
   return t.replace(/[！？，。～\s]+/g, ' ').trim() || 'chill pop';
 }
 
-async function getRecommendations(moodText, weather) {
-  const query = moodToSearchQuery(moodText);
-
+async function getRecommendations(query) {
   // 1. genre: 精确搜索
   try {
     const q1 = encodeURIComponent(`genre:"${query}"`);
@@ -306,12 +337,21 @@ async function handleSend() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
   if (!text) return;
+  if (!getDeepSeekKey()) { promptForKey(); if (!getDeepSeekKey()) return; }
   input.value = '';
   addMsg(text, 'user');
-  const reply = moodToReply(text, weather);
   const loadDiv = addLoading();
   try {
-    const tracks = await getRecommendations(text, weather);
+    let reply, query;
+    try {
+      const ds = await callDeepSeek(text, weather);
+      reply = ds.reply;
+      query = ds.query;
+    } catch (e) {
+      reply = moodToReply(text, weather);
+      query = moodToSearchQuery(text);
+    }
+    const tracks = await getRecommendations(query);
     loadDiv.remove();
     addMsg(reply, 'bot');
     if (tracks.length) {
@@ -353,6 +393,7 @@ async function init() {
 
   weather = await fetchWeather();
 
+  document.getElementById('settings-btn').addEventListener('click', promptForKey);
   document.getElementById('send-btn').addEventListener('click', handleSend);
   document.getElementById('chat-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleSend();
