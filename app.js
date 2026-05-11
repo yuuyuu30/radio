@@ -225,23 +225,27 @@ function shuffleTake(arr, n) {
 async function getRecommendations(genre) {
   const keyword = genre.replace(/-/g, ' ');
 
-  // 1. Search playlists → try up to 3 (skip private 403 ones) → shuffle tracks
+  // 1. Artist search → top tracks (no limit param, avoids 400/403 issues)
   try {
     const q = encodeURIComponent(keyword);
-    const plData = await apiGet(`/search?q=${q}&type=playlist&limit=10`);
-    const playlists = shuffleTake((plData.playlists?.items || []).filter(Boolean), 5);
-    for (const pl of playlists) {
-      const trData = await apiGet(`/playlists/${pl.id}/tracks?limit=30`);
-      if (trData.error) continue;
-      const tracks = (trData.items || []).map(i => i.track).filter(t => t?.uri);
-      if (tracks.length >= 5) return shuffleTake(tracks, 20);
+    const artData = await apiGet(`/search?q=${q}&type=artist`);
+    const artists = shuffleTake((artData.artists?.items || []).filter(Boolean), 5);
+    if (artists.length) {
+      const pool = [];
+      for (const a of artists) {
+        try {
+          const td = await apiGet(`/artists/${a.id}/top-tracks?market=from_token`);
+          if (td.tracks?.length) pool.push(...td.tracks);
+        } catch (e) {}
+      }
+      if (pool.length >= 5) return shuffleTake(pool, 20);
     }
   } catch (e) {}
 
-  // 2. Direct track search — limit=20 (Spotify rejects limit=50 for some accounts)
+  // 2. Track search without explicit limit (use Spotify default)
   try {
     const q = encodeURIComponent(keyword);
-    const data = await apiGet(`/search?q=${q}&type=track&limit=20`);
+    const data = await apiGet(`/search?q=${q}&type=track&market=from_token`);
     if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
   } catch (e) {}
 
