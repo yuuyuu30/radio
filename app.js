@@ -12,6 +12,8 @@ const SCOPES = [
   'user-top-read',
   'user-read-playback-state',
   'user-modify-playback-state',
+  'user-library-modify',
+  'user-library-read',
 ].join(' ');
 
 const DS_MODEL = 'deepseek-v4-flash';
@@ -235,6 +237,32 @@ async function getRecommendations(genre) {
   return [];
 }
 
+// ===== Spotify Library (心) =====
+let currentTrackId = null;
+
+async function checkSaved(trackId) {
+  const data = await apiGet(`/me/tracks/contains?ids=${trackId}`);
+  return Array.isArray(data) ? data[0] : false;
+}
+
+function updateHeartBtn(saved) {
+  const btn = document.getElementById('heart-btn');
+  if (!btn) return;
+  btn.textContent = saved ? '♥' : '♡';
+  btn.classList.toggle('saved', saved);
+}
+
+async function toggleSave() {
+  if (!currentTrackId) return;
+  const saved = document.getElementById('heart-btn')?.classList.contains('saved');
+  const method = saved ? 'DELETE' : 'PUT';
+  await fetch(`https://api.spotify.com/v1/me/tracks?ids=${currentTrackId}`, {
+    method,
+    headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+  });
+  updateHeartBtn(!saved);
+}
+
 // ===== Web Playback SDK =====
 let player = null;
 let deviceId = null;
@@ -255,6 +283,10 @@ window.onSpotifyWebPlaybackSDKReady = () => {
     document.body.classList.toggle('playing', !state.paused);
     const track = state.track_window.current_track;
     updateNowPlaying(track, !state.paused);
+    if (track.id !== currentTrackId) {
+      currentTrackId = track.id;
+      checkSaved(track.id).then(updateHeartBtn);
+    }
     // 同步当前 index
     const idx = currentTracks.findIndex(t => t.id === track.id);
     if (idx !== -1) {
@@ -393,6 +425,13 @@ async function init() {
   weather = await fetchWeather();
 
   document.getElementById('settings-btn').addEventListener('click', promptForKey);
+  document.getElementById('heart-btn').addEventListener('click', toggleSave);
+  const volSlider = document.getElementById('volume-slider');
+  volSlider.addEventListener('input', () => {
+    const vol = volSlider.value / 100;
+    document.getElementById('vol-value').textContent = volSlider.value;
+    player?.setVolume(vol);
+  });
   document.getElementById('send-btn').addEventListener('click', handleSend);
   document.getElementById('chat-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleSend();
