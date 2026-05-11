@@ -224,28 +224,37 @@ function shuffleTake(arr, n) {
 
 async function getRecommendations(genre) {
   const keyword = genre.replace(/-/g, ' ');
+  console.log('[radio] getRecommendations:', genre, '->', keyword);
 
   // 1. Search playlists → random pick → shuffle tracks (best variety)
   try {
     const q = encodeURIComponent(keyword);
     const plData = await apiGet(`/search?q=${q}&type=playlist&limit=10`);
+    console.log('[radio] playlist search raw:', JSON.stringify(plData).slice(0, 300));
     const playlists = (plData.playlists?.items || []).filter(Boolean);
+    console.log('[radio] playlists found:', playlists.length);
     if (playlists.length) {
       const pl = playlists[Math.floor(Math.random() * playlists.length)];
+      console.log('[radio] picked playlist:', pl.name, pl.id);
       const trData = await apiGet(`/playlists/${pl.id}/tracks?limit=50`);
+      console.log('[radio] playlist tracks items:', trData.items?.length, 'error:', trData.error);
       const tracks = (trData.items || []).map(i => i.track).filter(t => t?.uri);
+      console.log('[radio] valid tracks:', tracks.length);
       if (tracks.length >= 5) return shuffleTake(tracks, 20);
     }
-  } catch (e) {}
+  } catch (e) { console.error('[radio] playlist step error:', e.message); }
 
   // 2. Direct track search fallback
   try {
     const q = encodeURIComponent(keyword);
+    console.log('[radio] trying track search for:', keyword);
     const data = await apiGet(`/search?q=${q}&type=track&limit=50`);
+    console.log('[radio] track search items:', data.tracks?.items?.length, 'error:', data.error);
     if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
-  } catch (e) {}
+  } catch (e) { console.error('[radio] track search error:', e.message); }
 
   // 3. User top tracks as last resort
+  console.warn('[radio] falling back to top tracks!');
   try {
     const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
     if (top.items?.length) return top.items;
