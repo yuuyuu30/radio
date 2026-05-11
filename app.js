@@ -224,22 +224,23 @@ function shuffleTake(arr, n) {
 
 async function getRecommendations(genre) {
   const keyword = genre.replace(/-/g, ' ');
+  // Use Spotify genre: field filter — searches the genre tag, not track titles
+  const genreQ = keyword.includes(' ') ? `genre:"${keyword}"` : `genre:${keyword}`;
 
-  // 1. 关键词搜索，limit=50 取回大池子，客户端洗牌保证每次不重样
+  try {
+    const q = encodeURIComponent(genreQ);
+    const data = await apiGet(`/search?q=${q}&type=track&limit=50`);
+    if (data.tracks?.items?.length >= 5) return shuffleTake(data.tracks.items, 20);
+  } catch (e) {}
+
+  // fallback: plain keyword search
   try {
     const q = encodeURIComponent(keyword);
     const data = await apiGet(`/search?q=${q}&type=track&limit=50`);
     if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
   } catch (e) {}
 
-  // 2. 不传 limit，用 Spotify 默认值
-  try {
-    const q = encodeURIComponent(keyword);
-    const data = await apiGet(`/search?q=${q}&type=track`);
-    if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
-  } catch (e) {}
-
-  // 3. 最后兜底：用户 top tracks
+  // last resort: user top tracks
   try {
     const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
     if (top.items?.length) return top.items;
@@ -267,11 +268,11 @@ async function toggleSave() {
   if (!currentTrackId) return;
   const saved = document.getElementById('heart-btn')?.classList.contains('saved');
   const method = saved ? 'DELETE' : 'PUT';
-  await fetch(`https://api.spotify.com/v1/me/tracks?ids=${currentTrackId}`, {
+  const res = await fetch(`https://api.spotify.com/v1/me/tracks?ids=${currentTrackId}`, {
     method,
     headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
   });
-  updateHeartBtn(!saved);
+  if (res.ok) updateHeartBtn(!saved);
 }
 
 // ===== Web Playback SDK =====
