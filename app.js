@@ -236,7 +236,7 @@ async function getRecommendations(genre) {
       const pool = [];
       for (const a of artists) {
         try {
-          const td = await apiGet(`/artists/${a.id}/top-tracks?market=from_token`);
+          const td = await apiGet(`/artists/${a.id}/top-tracks?market=US`);
           if (td.tracks?.length) pool.push(...td.tracks);
         } catch (e) {}
       }
@@ -247,7 +247,7 @@ async function getRecommendations(genre) {
   // 2. Track search (no explicit limit)
   try {
     const q = encodeURIComponent(keyword);
-    const data = await apiGet(`/search?q=${q}&type=track&market=from_token`);
+    const data = await apiGet(`/search?q=${q}&type=track&market=US`);
     if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
   } catch (e) {}
 
