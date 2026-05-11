@@ -224,31 +224,31 @@ function shuffleTake(arr, n) {
 
 async function getRecommendations(genre) {
   const keyword = genre.replace(/-/g, ' ');
+  const pool = [];
 
-  // 1. Artist search with query variation → collect top tracks from up to 10 artists
-  const variations = [keyword, keyword + ' music', 'best ' + keyword, keyword + ' classic', keyword + ' acoustic'];
-  const qStr = variations[Math.floor(Math.random() * variations.length)];
-  try {
-    const q = encodeURIComponent(qStr);
-    const artData = await apiGet(`/search?q=${q}&type=artist`);
-    const artists = (artData.artists?.items || []).filter(Boolean).slice(0, 10);
-    if (artists.length) {
-      const pool = [];
-      for (const a of artists) {
-        try {
-          const td = await apiGet(`/artists/${a.id}/top-tracks?market=US`);
-          if (td.tracks?.length) pool.push(...td.tracks);
-        } catch (e) {}
-      }
-      if (pool.length >= 5) return shuffleTake(pool, 20);
-    }
-  } catch (e) {}
+  // 1. Multiple track search queries → big pool (no limit param avoids 400)
+  const queries = [keyword, keyword + ' music', 'best ' + keyword, keyword + ' hits', keyword + ' songs'];
+  for (const qStr of queries) {
+    try {
+      const q = encodeURIComponent(qStr);
+      const data = await apiGet(`/search?q=${q}&type=track&market=US`);
+      if (data.tracks?.items?.length) pool.push(...data.tracks.items);
+    } catch (e) {}
+  }
+  if (pool.length >= 5) return shuffleTake(pool, 20);
 
-  // 2. Track search (no explicit limit)
+  // 2. Artist search → top tracks from each artist
   try {
     const q = encodeURIComponent(keyword);
-    const data = await apiGet(`/search?q=${q}&type=track&market=US`);
-    if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
+    const artData = await apiGet(`/search?q=${q}&type=artist`);
+    const artists = (artData.artists?.items || []).filter(Boolean).slice(0, 10);
+    for (const a of artists) {
+      try {
+        const td = await apiGet(`/artists/${a.id}/top-tracks?market=US`);
+        if (td.tracks?.length) pool.push(...td.tracks);
+      } catch (e) {}
+    }
+    if (pool.length >= 5) return shuffleTake(pool, 20);
   } catch (e) {}
 
   // 3. User top tracks as last resort
