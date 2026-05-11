@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>小克喵电台 🎵</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <div id="app">
@@ -64,6 +66,12 @@
               <button id="prev-btn" class="ctrl-btn">⏮</button>
               <button id="play-btn" class="ctrl-btn play">▶</button>
               <button id="next-btn" class="ctrl-btn">⏭</button>
+              <button id="heart-btn" class="heart-btn" title="加入喜欢">♡</button>
+            </div>
+            <div class="volume-row">
+              <span class="vol-label">VOL</span>
+              <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="70">
+              <span id="vol-value">70</span>
             </div>
           </div>
 
@@ -77,6 +85,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
