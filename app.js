@@ -214,19 +214,19 @@ function moodToSearchQuery(text) {
 }
 
 async function getRecommendations(genre) {
-  // 1. Spotify Recommendations API（按 seed_genre，随机 audio features 保证每次不重样）
+  const rndOffset = () => Math.floor(Math.random() * 80);
+
+  // 1. genre field 搜索（随机 offset 保证每次不重样）
   try {
-    const seed = encodeURIComponent(genre);
-    const rv = (lo, hi) => (Math.random() * (hi - lo) + lo).toFixed(2);
-    const extra = `&target_energy=${rv(0.25,0.85)}&target_valence=${rv(0.15,0.85)}&target_danceability=${rv(0.2,0.9)}`;
-    const data1 = await apiGet(`/recommendations?seed_genres=${seed}&limit=20${extra}`);
-    if (data1.tracks?.length) return data1.tracks;
+    const q = encodeURIComponent(`genre:${genre}`);
+    const data1 = await apiGet(`/search?q=${q}&type=track&limit=20&offset=${rndOffset()}`);
+    if (data1.tracks?.items?.length) return data1.tracks.items;
   } catch (e) {}
 
-  // 2. 关键词搜索兜底（不传 limit，用 Spotify 默认值）
+  // 2. 关键词宽松搜索兜底（也随机翻页）
   try {
     const q = encodeURIComponent(genre.replace(/-/g, ' '));
-    const data2 = await apiGet(`/search?q=${q}&type=track`);
+    const data2 = await apiGet(`/search?q=${q}&type=track&limit=20&offset=${rndOffset()}`);
     if (data2.tracks?.items?.length) return data2.tracks.items;
   } catch (e) {}
 
