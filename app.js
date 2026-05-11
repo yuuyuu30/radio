@@ -224,23 +224,28 @@ function shuffleTake(arr, n) {
 
 async function getRecommendations(genre) {
   const keyword = genre.replace(/-/g, ' ');
-  // Use Spotify genre: field filter — searches the genre tag, not track titles
-  const genreQ = keyword.includes(' ') ? `genre:"${keyword}"` : `genre:${keyword}`;
 
+  // 1. Search playlists → random pick → shuffle tracks (best variety)
   try {
-    const q = encodeURIComponent(genreQ);
-    const data = await apiGet(`/search?q=${q}&type=track&limit=50`);
-    if (data.tracks?.items?.length >= 5) return shuffleTake(data.tracks.items, 20);
+    const q = encodeURIComponent(keyword);
+    const plData = await apiGet(`/search?q=${q}&type=playlist&limit=10`);
+    const playlists = (plData.playlists?.items || []).filter(Boolean);
+    if (playlists.length) {
+      const pl = playlists[Math.floor(Math.random() * playlists.length)];
+      const trData = await apiGet(`/playlists/${pl.id}/tracks?limit=50`);
+      const tracks = (trData.items || []).map(i => i.track).filter(t => t?.uri);
+      if (tracks.length >= 5) return shuffleTake(tracks, 20);
+    }
   } catch (e) {}
 
-  // fallback: plain keyword search
+  // 2. Direct track search fallback
   try {
     const q = encodeURIComponent(keyword);
     const data = await apiGet(`/search?q=${q}&type=track&limit=50`);
     if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
   } catch (e) {}
 
-  // last resort: user top tracks
+  // 3. User top tracks as last resort
   try {
     const top = await apiGet('/me/top/tracks?limit=20&time_range=medium_term');
     if (top.items?.length) return top.items;
