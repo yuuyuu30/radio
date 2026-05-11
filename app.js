@@ -213,21 +213,30 @@ function moodToSearchQuery(text) {
   return 'pop';
 }
 
-async function getRecommendations(genre) {
-  const rndOffset = () => Math.floor(Math.random() * 80);
+function shuffleTake(arr, n) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, n);
+}
 
-  // 1. genre field 搜索（随机 offset 保证每次不重样）
+async function getRecommendations(genre) {
+  const keyword = genre.replace(/-/g, ' ');
+
+  // 1. 关键词搜索，limit=50 取回大池子，客户端洗牌保证每次不重样
   try {
-    const q = encodeURIComponent(`genre:${genre}`);
-    const data1 = await apiGet(`/search?q=${q}&type=track&limit=20&offset=${rndOffset()}`);
-    if (data1.tracks?.items?.length) return data1.tracks.items;
+    const q = encodeURIComponent(keyword);
+    const data = await apiGet(`/search?q=${q}&type=track&limit=50`);
+    if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
   } catch (e) {}
 
-  // 2. 关键词宽松搜索兜底（也随机翻页）
+  // 2. 不传 limit，用 Spotify 默认值
   try {
-    const q = encodeURIComponent(genre.replace(/-/g, ' '));
-    const data2 = await apiGet(`/search?q=${q}&type=track&limit=20&offset=${rndOffset()}`);
-    if (data2.tracks?.items?.length) return data2.tracks.items;
+    const q = encodeURIComponent(keyword);
+    const data = await apiGet(`/search?q=${q}&type=track`);
+    if (data.tracks?.items?.length) return shuffleTake(data.tracks.items, 20);
   } catch (e) {}
 
   // 3. 最后兜底：用户 top tracks
