@@ -225,11 +225,13 @@ function shuffleTake(arr, n) {
 async function getRecommendations(genre) {
   const keyword = genre.replace(/-/g, ' ');
 
-  // 1. Artist search → top tracks (no limit param, avoids 400/403 issues)
+  // 1. Artist search with query variation → collect top tracks from up to 10 artists
+  const variations = [keyword, keyword + ' music', 'best ' + keyword, keyword + ' classic', keyword + ' acoustic'];
+  const qStr = variations[Math.floor(Math.random() * variations.length)];
   try {
-    const q = encodeURIComponent(keyword);
+    const q = encodeURIComponent(qStr);
     const artData = await apiGet(`/search?q=${q}&type=artist`);
-    const artists = shuffleTake((artData.artists?.items || []).filter(Boolean), 5);
+    const artists = (artData.artists?.items || []).filter(Boolean).slice(0, 10);
     if (artists.length) {
       const pool = [];
       for (const a of artists) {
@@ -242,7 +244,7 @@ async function getRecommendations(genre) {
     }
   } catch (e) {}
 
-  // 2. Track search without explicit limit (use Spotify default)
+  // 2. Track search (no explicit limit)
   try {
     const q = encodeURIComponent(keyword);
     const data = await apiGet(`/search?q=${q}&type=track&market=from_token`);
